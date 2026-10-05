@@ -1,0 +1,64 @@
+# Административные районы (раздел 13.1 ТЗ)
+id: admin_districts
+version: 2
+label_ru: "Административные районы"
+description_ru: >
+  Boundary relations районного уровня (муниципальные районы/округа, аудандары и т. п.)
+  в странах рецепта, пересекающие AOI. Страны по умолчанию — RU, KZ; меняются в окне
+  или параметром --countries. Уровни admin_level задаются в country_profiles, а не в коде.
+countries: [RU, KZ]
+country_profiles:
+  default:
+    district_admin_levels: [6]
+  RU:
+    district_admin_levels: [6]
+  KZ:
+    district_admin_levels: [6]
+  BY:
+    district_admin_levels: [6]
+  UA:
+    district_admin_levels: [6]
+output_name: "{recipe}__{aoi}__{date}.gpkg"
+clip_geometry: false          # районы сохраняются целиком; --clip включает обрезку
+language:
+  preferred: ["name:ru"]
+  fallback: ["name"]
+tiling:
+  max_bbox_area_deg2: 4.0
+sources:
+  - id: district_relations
+    geometry: [relation]
+    country_scope: area
+    country_resolution: point   # районы на стыке стран уточняются по внутренней точке
+    include_enclosing: true     # район, целиком содержащий тайл, тоже попадает в выборку
+    filters:
+      - boundary: administrative
+        admin_level: "$profile:district_admin_levels"
+  - id: district_ways_tagged    # только для проверки: tagged ways без relation
+    geometry: [way]
+    country_scope: area
+    geometry_output: tags
+    filters:
+      - boundary: administrative
+        admin_level: "$profile:district_admin_levels"
+outputs:
+  - layer: admin_districts
+    label_ru: "Административные районы"
+    from: [district_relations]
+    geometry_type: MultiPolygon
+    where:
+      - type: [boundary, multipolygon]
+    operations: [deduplicate, make_valid, clip]
+    fields:
+      - {name: admin_level, tag: admin_level, type: int}
+      - boundary
+      - official_status
+      - ref
+      - wikidata
+      - wikipedia
+checks:
+  - type: orphan_members
+    source: district_ways_tagged
+    relations: district_relations
+    code: W_ORPHAN_DISTRICT_WAY
+    message_ru: "way с тегами района не входит ни в одно boundary relation и не считается районом"

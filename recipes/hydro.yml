@@ -1,0 +1,139 @@
+# Гидрография (раздел 13.2 ТЗ)
+id: hydro
+version: 3
+label_ru: "Гидрография (моря, реки, озёра, водохранилища)"
+description_ru: >
+  Линейные реки, площадные русла, моря (полигоны и точки-подписи), озёра, водохранилища
+  и (опционально) береговая линия. Один OSM-объект попадает только в один площадной класс.
+countries: [RU, KZ]            # по умолчанию; меняются в окне или параметром --countries
+output_name: "{recipe}__{aoi}__{date}.gpkg"
+clip_geometry: true
+language:
+  preferred: ["name:ru"]
+  fallback: ["name"]
+params:
+  coastline: false
+  water_unclassified: false
+param_labels_ru:
+  coastline: "Береговая линия (coastline_line)"
+  water_unclassified: "Водоёмы без water=* (water_unclassified)"
+sources:
+  - id: river_lines
+    geometry: [way]
+    country_scope: area
+    filters:
+      - waterway: river
+  - id: sea_polygons            # моря, в т. ч. Каспийское (natural=water + water=lake + place=sea)
+    geometry: [way, relation]
+    include_enclosing: true     # море, целиком содержащее тайл
+    filters:
+      - place: [sea, ocean]
+  - id: water_polygons
+    geometry: [way, relation]
+    country_scope: area
+    include_enclosing: true     # крупное озеро/водохранилище, целиком содержащее тайл
+    filters:
+      - natural: water
+        water: [river, lake, oxbow, lagoon, reservoir]
+      - waterway: riverbank
+      - landuse: reservoir
+  - id: water_noclass           # natural=water без water=* — только для слоя water_unclassified
+    geometry: [way, relation]
+    country_scope: area
+    filters:
+      - natural: water
+        water: {exists: false}
+  - id: seas
+    geometry: [nwr]
+    geometry_output: center
+    filters:
+      - place: sea
+  - id: coastline
+    geometry: [way]
+    filters:
+      - natural: coastline
+outputs:
+  - layer: rivers_line
+    label_ru: "Реки (осевые линии)"
+    from: [river_lines]
+    geometry_type: MultiLineString
+    operations: [deduplicate, make_valid, clip]
+    fields: &hydro_fields
+      - waterway
+      - water
+      - natural
+      - landuse
+      - intermittent
+      - seasonal
+      - salt
+      - tidal
+      - wikidata
+  # --- площадные классы: exclusive_group, приоритет sea → river → reservoir → lake → unclassified;
+  #     новые теги (water=*) важнее legacy-тегов (waterway=riverbank, landuse=reservoir)
+  - layer: seas_polygon
+    label_ru: "Моря (полигоны)"
+    from: [sea_polygons]
+    geometry_type: MultiPolygon
+    exclusive_group: water_areas
+    where:
+      - place: [sea, ocean]
+    operations: [deduplicate, make_valid, clip]
+    fields: [place, natural, water, salt, wikidata]
+  - layer: rivers_polygon
+    label_ru: "Реки (площадные)"
+    from: [water_polygons]
+    geometry_type: MultiPolygon
+    exclusive_group: water_areas
+    where:
+      - natural: water
+        water: river
+      - waterway: riverbank
+        water: {exists: false}
+    operations: [deduplicate, make_valid, clip]
+    fields: *hydro_fields
+  - layer: reservoirs_polygon
+    label_ru: "Водохранилища"
+    from: [water_polygons]
+    geometry_type: MultiPolygon
+    exclusive_group: water_areas
+    where:
+      - natural: water
+        water: reservoir
+      - landuse: reservoir
+        water: {exists: false}
+    operations: [deduplicate, make_valid, clip]
+    fields: *hydro_fields
+  - layer: lakes_polygon
+    label_ru: "Озёра (в т. ч. старицы и лагуны)"
+    from: [water_polygons]
+    geometry_type: MultiPolygon
+    exclusive_group: water_areas
+    where:
+      - natural: water
+        water: [lake, oxbow, lagoon]
+    operations: [deduplicate, make_valid, clip]
+    fields: *hydro_fields
+  - layer: water_unclassified
+    label_ru: "Водные объекты без water=*"
+    geometry_type: MultiPolygon
+    exclusive_group: water_areas
+    enabled_if: water_unclassified
+    from: [water_noclass]
+    where:
+      - natural: water
+        water: {exists: false}
+    operations: [deduplicate, make_valid, clip]
+    fields: *hydro_fields
+  - layer: seas_point
+    label_ru: "Моря (точки-подписи place=sea)"
+    from: [seas]
+    geometry_type: Point
+    operations: [deduplicate, clip]
+    fields: [place, wikidata]
+  - layer: coastline_line
+    label_ru: "Береговая линия"
+    from: [coastline]
+    geometry_type: MultiLineString
+    enabled_if: coastline
+    operations: [deduplicate, make_valid, clip]
+    fields: [natural]

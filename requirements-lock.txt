@@ -1,0 +1,11 @@
+# Версии, на которых OSMdwnl 1.0.0 протестирован (Python 3.14, GDAL 3.12.4)
+geopandas==1.2.0
+pyogrio==0.13.0
+shapely==2.1.2
+pyproj==3.8.0
+pandas==3.0.6
+numpy==2.5.3
+pydantic==2.12.5
+PyYAML==6.0.3
+requests==2.34.2
+pytest==9.1.1

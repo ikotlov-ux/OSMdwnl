@@ -1,0 +1,61 @@
+# Населённые пункты: точки (узлы place=*) и контуры (замкнутые линии и multipolygon с place=*)
+id: settlements
+version: 1
+label_ru: "Населённые пункты"
+description_ru: >
+  Города, посёлки, сёла, деревни, хутора и отдельные дворы (place=city|town|village|hamlet|
+  isolated_dwelling) в странах рецепта: точки-узлы и контуры населённых пунктов. Точки и
+  контуры связаны полями polygon_uid / point_uid; по желанию точечный слой дополняется
+  внутренними точками контуров, для которых нет узла. Страны по умолчанию — RU, KZ;
+  меняются в окне или параметром --countries.
+countries: [RU, KZ]
+output_name: "{recipe}__{aoi}__{date}.gpkg"
+clip_geometry: true
+language:
+  preferred: ["name:ru"]
+  fallback: ["name"]
+params:
+  points_from_polygons: true
+param_labels_ru:
+  points_from_polygons: "Добавить точки для контуров без узла place=*"
+tiling:
+  max_bbox_area_deg2: 2.0
+sources:
+  - id: place_nodes
+    geometry: [node]
+    country_scope: area
+    filters:
+      - place: [city, town, village, hamlet, isolated_dwelling]
+  - id: place_areas
+    geometry: [way, relation]
+    country_scope: area
+    filters:
+      - place: [city, town, village, hamlet, isolated_dwelling]
+outputs:
+  - layer: settlements_point
+    label_ru: "Населённые пункты (точки)"
+    from: [place_nodes]
+    geometry_type: Point
+    operations: [deduplicate, clip]
+    fields: &settl_fields
+      - place
+      - {name: population, tag: population, type: int}
+      - {name: population_date, tag: "population:date"}
+      - capital
+      - official_status
+      - {name: admin_level, tag: admin_level, type: int}
+      - {name: old_name, tag: old_name}
+      - wikidata
+      - wikipedia
+  - layer: settlements_polygon
+    label_ru: "Населённые пункты (контуры)"
+    from: [place_areas]
+    geometry_type: MultiPolygon
+    where:
+      - place: [city, town, village, hamlet, isolated_dwelling]
+    operations: [deduplicate, make_valid, clip]
+    fields: *settl_fields
+links:
+  - points: settlements_point
+    polygons: settlements_polygon
+    fill_points: points_from_polygons

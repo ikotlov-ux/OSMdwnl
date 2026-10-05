@@ -1,0 +1,66 @@
+# Административные единицы первого уровня: области, края, республики (по аналогии с 13.1 ТЗ)
+id: admin_regions
+version: 1
+label_ru: "Административные области (края, республики)"
+description_ru: >
+  Boundary relations первого административного уровня ниже государства (субъекты РФ,
+  облысы Казахстана, области Беларуси и Украины и т. п.) в странах рецепта, пересекающие AOI.
+  Страны по умолчанию — RU, KZ; меняются в окне или параметром --countries.
+  Уровни admin_level задаются в country_profiles, а не в коде.
+countries: [RU, KZ]
+country_profiles:
+  default:
+    region_admin_levels: [4]
+  RU:
+    region_admin_levels: [4]
+  KZ:
+    region_admin_levels: [4]
+  BY:
+    region_admin_levels: [4]
+  UA:
+    region_admin_levels: [4]
+output_name: "{recipe}__{aoi}__{date}.gpkg"
+clip_geometry: false          # области сохраняются целиком; --clip включает обрезку
+language:
+  preferred: ["name:ru"]
+  fallback: ["name"]
+tiling:
+  max_bbox_area_deg2: 16.0      # областей мало, тайлы крупнее — меньше запросов
+sources:
+  - id: region_relations
+    geometry: [relation]
+    country_scope: area
+    country_resolution: point   # области на стыке стран уточняются по внутренней точке
+    include_enclosing: true     # область, целиком содержащая тайл, тоже попадает в выборку
+    filters:
+      - boundary: administrative
+        admin_level: "$profile:region_admin_levels"
+  - id: region_ways_tagged    # только для проверки: tagged ways без relation
+    geometry: [way]
+    country_scope: area
+    geometry_output: tags
+    filters:
+      - boundary: administrative
+        admin_level: "$profile:region_admin_levels"
+outputs:
+  - layer: admin_regions
+    label_ru: "Административные области"
+    from: [region_relations]
+    geometry_type: MultiPolygon
+    where:
+      - type: [boundary, multipolygon]
+    operations: [deduplicate, make_valid, clip]
+    fields:
+      - {name: admin_level, tag: admin_level, type: int}
+      - boundary
+      - official_status
+      - ref
+      - {name: iso3166_2, tag: "ISO3166-2"}
+      - wikidata
+      - wikipedia
+checks:
+  - type: orphan_members
+    source: region_ways_tagged
+    relations: region_relations
+    code: W_ORPHAN_REGION_WAY
+    message_ru: "way с тегами области не входит ни в одно boundary relation и не считается областью"

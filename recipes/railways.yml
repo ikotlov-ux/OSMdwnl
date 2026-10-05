@@ -1,0 +1,119 @@
+# Железные дороги: пути, станции и остановочные пункты
+id: railways
+version: 1
+label_ru: "Железные дороги"
+description_ru: >
+  Железнодорожные пути (railway=rail и narrow_gauge) с атрибутами назначения, колеи,
+  электрификации и числа путей; станции и остановочные пункты (railway=station|halt).
+  По желанию — служебные пути (станционные, подъездные, тупики), городской рельсовый
+  транспорт (метро, трамвай, лёгкое метро, монорельс, фуникулёр) и недействующие линии
+  (разобранные, заброшенные, строящиеся). Страны по умолчанию — RU, KZ; меняются в окне
+  или параметром --countries.
+countries: [RU, KZ]
+output_name: "{recipe}__{aoi}__{date}.gpkg"
+clip_geometry: true
+language:
+  preferred: ["name:ru"]
+  fallback: ["name"]
+params:
+  stations: true
+  service_tracks: false
+  urban_rail: false
+  inactive: false
+param_labels_ru:
+  stations: "Станции и остановочные пункты"
+  service_tracks: "Служебные пути (станционные, подъездные, тупики)"
+  urban_rail: "Метро, трамвай, монорельс, фуникулёр"
+  inactive: "Разобранные, заброшенные и строящиеся линии"
+tiling:
+  max_bbox_area_deg2: 2.0
+sources:
+  - id: rail_main
+    geometry: [way]
+    country_scope: area
+    filters:
+      - railway: [rail, narrow_gauge]
+        service: {exists: false}
+  - id: rail_service
+    geometry: [way]
+    country_scope: area
+    filters:
+      - railway: [rail, narrow_gauge]
+        service: {exists: true}
+  - id: rail_urban
+    geometry: [way]
+    country_scope: area
+    filters:
+      - railway: [subway, light_rail, tram, monorail, funicular]
+  - id: rail_inactive
+    geometry: [way]
+    country_scope: area
+    filters:
+      - railway: [abandoned, disused, razed, construction, proposed, preserved]
+  - id: rail_stations
+    geometry: [nwr]
+    geometry_output: center
+    country_scope: area
+    filters:
+      - railway: [station, halt]
+outputs:
+  - layer: railways_line
+    label_ru: "Железные дороги (главные и прочие пути)"
+    from: [rail_main]
+    geometry_type: MultiLineString
+    operations: [deduplicate, make_valid, clip]
+    fields: &rail_fields
+      - railway
+      - usage
+      - service
+      - gauge
+      - electrified
+      - {name: voltage, tag: voltage, type: int}
+      - frequency
+      - {name: tracks, tag: tracks, type: int}
+      - {name: maxspeed, tag: maxspeed, type: int}
+      - highspeed
+      - ref
+      - operator
+      - bridge
+      - tunnel
+      - {name: layer, tag: layer, type: int}
+      - wikidata
+  - layer: railway_service_line
+    label_ru: "Служебные пути (станционные, подъездные, тупики)"
+    from: [rail_service]
+    geometry_type: MultiLineString
+    enabled_if: service_tracks
+    operations: [deduplicate, make_valid, clip]
+    fields: *rail_fields
+  - layer: urban_rail_line
+    label_ru: "Городской рельсовый транспорт"
+    from: [rail_urban]
+    geometry_type: MultiLineString
+    enabled_if: urban_rail
+    operations: [deduplicate, make_valid, clip]
+    fields: *rail_fields
+  - layer: railway_inactive_line
+    label_ru: "Недействующие и строящиеся линии"
+    from: [rail_inactive]
+    geometry_type: MultiLineString
+    enabled_if: inactive
+    operations: [deduplicate, make_valid, clip]
+    fields: *rail_fields
+  - layer: railway_stations_point
+    label_ru: "Станции и остановочные пункты"
+    from: [rail_stations]
+    geometry_type: Point
+    enabled_if: stations
+    where:
+      - station: {not_in: [subway, light_rail, monorail, funicular, tram]}
+    operations: [deduplicate, clip]
+    fields:
+      - railway
+      - station
+      - operator
+      - network
+      - {name: esr_code, tag: "esr:user"}
+      - {name: express_code, tag: "express:user"}
+      - uic_ref
+      - wikidata

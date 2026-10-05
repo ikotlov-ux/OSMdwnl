@@ -1,0 +1,90 @@
+# Автомобильные дороги
+id: roads
+version: 1
+label_ru: "Автомобильные дороги"
+description_ru: >
+  Дорожная сеть OSM (highway=*): магистрали и дороги регионального и местного значения
+  (motorway–tertiary со съездами); по желанию — местные и улицы, второстепенные проезды,
+  грунтовые и полевые дороги (track). Поля: класс, номер, покрытие, полосы, скорость,
+  мосты и тоннели. Страны по умолчанию — RU, KZ; меняются в окне или параметром --countries.
+countries: [RU, KZ]
+output_name: "{recipe}__{aoi}__{date}.gpkg"
+clip_geometry: true
+language:
+  preferred: ["name:ru"]
+  fallback: ["name"]
+params:
+  local_roads: false
+  service_roads: false
+  tracks: false
+param_labels_ru:
+  local_roads: "Местные дороги и улицы"
+  service_roads: "Служебные проезды (service)"
+  tracks: "Грунтовые и полевые дороги (track)"
+tiling:
+  max_bbox_area_deg2: 2.0
+sources:
+  - id: roads_main
+    geometry: [way]
+    country_scope: area
+    filters:
+      - highway: [motorway, motorway_link, trunk, trunk_link, primary, primary_link,
+                  secondary, secondary_link, tertiary, tertiary_link]
+  - id: roads_local
+    geometry: [way]
+    country_scope: area
+    filters:
+      - highway: [unclassified, residential, living_street, road]
+  - id: roads_service
+    geometry: [way]
+    country_scope: area
+    filters:
+      - highway: service
+  - id: roads_track
+    geometry: [way]
+    country_scope: area
+    filters:
+      - highway: track
+outputs:
+  - layer: roads_main_line
+    label_ru: "Основные дороги (motorway – tertiary)"
+    from: [roads_main]
+    geometry_type: MultiLineString
+    operations: [deduplicate, make_valid, clip]
+    fields: &road_fields
+      - highway
+      - ref
+      - int_ref
+      - surface
+      - {name: lanes, tag: lanes, type: int}
+      - {name: maxspeed, tag: maxspeed, type: int}
+      - oneway
+      - bridge
+      - tunnel
+      - {name: layer, tag: layer, type: int}
+      - tracktype
+      - smoothness
+      - access
+      - toll
+      - wikidata
+  - layer: roads_local_line
+    label_ru: "Местные дороги и улицы"
+    from: [roads_local]
+    geometry_type: MultiLineString
+    enabled_if: local_roads
+    operations: [deduplicate, make_valid, clip]
+    fields: *road_fields
+  - layer: roads_service_line
+    label_ru: "Служебные проезды"
+    from: [roads_service]
+    geometry_type: MultiLineString
+    enabled_if: service_roads
+    operations: [deduplicate, make_valid, clip]
+    fields: [highway, service, surface, access, bridge, tunnel, {name: layer, tag: layer, type: int}]
+  - layer: roads_track_line
+    label_ru: "Грунтовые и полевые дороги"
+    from: [roads_track]
+    geometry_type: MultiLineString
+    enabled_if: tracks
+    operations: [deduplicate, make_valid, clip]
+    fields: *road_fields

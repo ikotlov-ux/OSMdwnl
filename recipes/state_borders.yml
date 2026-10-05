@@ -1,0 +1,44 @@
+# Государственные границы (раздел 13.3 ТЗ)
+id: state_borders
+version: 2
+label_ru: "Государственные границы"
+description_ru: >
+  Member ways государственных boundary relations (admin_level=2) стран рецепта, пересекающие AOI.
+  Членство определяется по relations, а не по тегам ways.
+countries: [RU, KZ]
+output_name: "{recipe}__{aoi}__{date}.gpkg"
+clip_geometry: true
+params:
+  mode: all_target_borders      # all_target_borders | shared_only
+  include_maritime: false
+  country_outlines: false       # true — дополнительно полные полигоны стран (тяжело)
+param_choices:
+  mode: [all_target_borders, shared_only]
+param_labels_ru:
+  mode: "Режим (all_target_borders - все границы выбранных стран; shared_only - только участки между ними)"
+  include_maritime: "Включать морские участки"
+  country_outlines: "Добавить полигоны стран (тяжёлый запрос)"
+tiling:
+  max_bbox_area_deg2: 4.0
+sources:
+  - id: border_members
+    kind: country_border_members
+    geometry: [way]
+outputs:
+  - layer: state_border_line
+    label_ru: "Государственная граница (участки)"
+    from: [border_members]
+    transform: state_borders
+    geometry_type: MultiLineString
+    operations: [deduplicate, make_valid, clip]
+    fields: []
+  - layer: country_outlines
+    label_ru: "Государственные полигоны"
+    from: [border_members]
+    transform: country_outlines
+    enabled_if: country_outlines
+    geometry_type: MultiPolygon
+    operations: [make_valid, clip]
+    fields: ["ISO3166-1", admin_level]
+warnings_ru:
+  - "Данные OSM не являются официальным юридическим источником прохождения государственной границы."

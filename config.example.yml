@@ -1,0 +1,44 @@
+# Скопируйте в config.yml рядом с OSMdwnl.py и укажите свой контакт в user_agent.
+overpass:
+  endpoints:
+    - "https://overpass-api.de/api/interpreter"
+    - "https://overpass.private.coffee/api/interpreter"
+    - "https://maps.mail.ru/osm/tools/overpass/api/interpreter"
+  timeout_seconds: 180
+  maxsize_bytes: 536870912     # для relations целиком
+  tile_timeout_seconds: 120    # «лёгкий» заголовок тайлов, линий границ и is_in:
+  tile_maxsize_bytes: 134217728  # перегруженный сервер охотнее принимает такие запросы
+  split_after_busy: 6          # тайл, которому N раз подряд ответили «перегружен», делится на 4
+  retries: 8
+  endpoint_cooldown_seconds: 900  # пауза для зеркала без соединения
+  slow_endpoint_cooldown_seconds: 120  # пауза для зеркала, не дождавшегося ответа
+  busy_retries: 20            # доп. повторы при «server too busy»/429, тайл при этом не делится
+  switch_after_errors: 2
+  concurrency: 2              # параллельные запросы, каждый поток — своё зеркало (1–3)
+  check_status: true
+  relation_batch_size: 100
+  smart_country_filter: true  # страна по линиям госграниц + is_in вместо медленного фильтра по areas
+  user_agent: "OSMdwnl/1.0 (contact: you@example.org)"
+tiling:
+  enabled: true
+  max_bbox_area_deg2: 1.0
+  max_split_depth: 6
+cache:
+  enabled: true
+  ttl_days: 30
+  # dir: "D:/GIS/OSMdwnl_cache"
+output:
+  crs: "EPSG:4326"
+  spatial_index: true
+  keep_tags_json: true
+  overwrite: false
+  max_warning_rows: 5000
+planner:
+  recommend_pbf_area_deg2: 25
+  overpass_hard_limit_deg2: 400
+pbf:
+  keep_files: false            # true — не удалять скачанные выгрузки Geofabrik после обработки
+  download_speed_mb_s: 5       # для оценки времени в окне выбора источника
+  process_speed_mb_s: 3
+# recipe_dirs: ["D:/GIS/my_recipes"]
+# log_dir: "D:/GIS/OSMdwnl_logs"
