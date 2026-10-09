@@ -86,3 +86,13 @@ checks:
     relations: district_relations
     code: W_ORPHAN_DISTRICT_WAY
 ```
+
+### Поле с переводом значения (с 1.8.0)
+
+```yaml
+fields:
+  - name: wetland_type_ru
+    tag: "wetland|natural"      # значение первого присутствующего тега
+    values_ru: {bog: "верховое болото", fen: "низинное болото"}   # прочие значения — как есть
+    default_ru: "болото (тип не указан)"                          # если ни одного тега нет
+```

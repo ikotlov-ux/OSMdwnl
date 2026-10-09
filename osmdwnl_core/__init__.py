@@ -1,5 +1,5 @@
 """OSMdwnl — декларативная загрузка OSM в GeoPackage."""
-__version__ = "1.7.0"
+__version__ = "1.8.0"
 SOFTWARE_NAME = "OSMdwnl"
 ATTRIBUTION = "© OpenStreetMap contributors"
 LICENSE = "ODbL 1.0 — https://www.openstreetmap.org/copyright"

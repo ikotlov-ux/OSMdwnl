@@ -243,7 +243,13 @@ def _attributes(c: Candidate, tags: dict, ctx: BuildContext, fspecs: list[FieldS
         if f.name in c.extra:
             v = c.extra[f.name]
         else:
-            v = tags.get(f.tag or f.name)
+            v = None
+            for t in (f.tag or f.name).split("|"):
+                v = tags.get(t)
+                if v is not None:
+                    break
+            if f.values_ru is not None or f.default_ru is not None:
+                v = (f.values_ru or {}).get(v, v) if v is not None else f.default_ru
         if f.type == "int":
             v = _int(v)
         elif f.type == "real":

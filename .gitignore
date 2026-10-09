@@ -3,6 +3,3 @@ __pycache__/
 *.tmp.gpkg
 config.yml
 .pytest_cache/
-_osm_pbf/
-*.osm.pbf
-*.gpkg

@@ -40,8 +40,10 @@ class StrictModel(BaseModel):
 
 class FieldSpec(StrictModel):
     name: str
-    tag: Optional[str] = None
+    tag: Optional[str] = None            # "a|b" — значение первого присутствующего тега
     type: Literal["text", "int", "real"] = "text"
+    values_ru: Optional[dict[str, str]] = None   # перевод значения тега (прочие — как есть)
+    default_ru: Optional[str] = None             # если ни одного тега нет
 
     @field_validator("name")
     @classmethod

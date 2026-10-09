@@ -1,5 +1,19 @@
 # Журнал изменений
 
+## 1.8.0 — 2026-10-09
+
+- Рецепт `hydro` (версия 4): все типы водоёмов и болот.
+  - `lakes_polygon` — озёра, старицы, лагуны, пруды, плёсы (`water=lake|oxbow|lagoon|pond|stream_pool`).
+  - `reservoirs_polygon` — водохранилища и искусственные водоёмы (`reservoir`, `basin`, `fishpond`, `wastewater`,
+    `reflecting_pool`, `salt_pool`; legacy `landuse=reservoir|basin`).
+  - `rivers_polygon` дополнен `water=stream|rapids`.
+  - Новый слой `water_other_polygon` — все прочие `water=*` (каналы, канавы, рвы, шлюзы, гавани).
+  - Новый слой `wetlands_polygon` — болота и заболоченные земли всех типов: `natural=wetland` с любым `wetland=*`,
+    устаревшие `natural=marsh|bog|fen|swamp`, заболоченные леса и луга (`wetland=*` на `landuse=forest|meadow`).
+    Крупное болото, целиком содержащее тайл, тоже загружается.
+  - Поля `water_type_ru` и `wetland_type_ru` — тип объекта по-русски.
+- Схема рецепта: у поля появились `values_ru`, `default_ru` и `tag: "a|b"`.
+
 ## 1.7.0 — 2026-10-05
 
 - Overpass: «лёгкий» заголовок для тайлов, линий границ и is_in (`[timeout:120][maxsize:128 МБ]`);

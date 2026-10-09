@@ -35,7 +35,10 @@
 
 ## hydro
 
-Все слои: `waterway`, `water`, `natural`, `landuse`, `intermittent`, `seasonal`, `salt`, `tidal`, `wikidata`.
+Водные слои: `water_type_ru` (тип по-русски: озеро, старица, пруд, водохранилище, канал…), `waterway`, `water`,
+`natural`, `landuse`, `intermittent`, `seasonal`, `salt`, `tidal`, `wikidata`.
+`wetlands_polygon`: `wetland_type_ru`, `wetland`, `natural`, `landuse`, `leaf_type`, `leaf_cycle`, `wood`, `peat`,
+`intermittent`, `seasonal`, `salt`, `tidal`, `wikidata`.
 `seas_point`: `place`, `wikidata`. `seas_polygon`: `place`, `natural`, `water`, `salt`, `wikidata`.
 `coastline_line`: `natural`.
 
@@ -43,10 +46,18 @@
 |---|---|
 | `rivers_line` | `way[waterway=river]` |
 | `seas_polygon` | `place=sea` или `place=ocean` (way/multipolygon); Каспийское море (`natural=water + water=lake + place=sea`) попадает сюда, а не в озёра |
-| `rivers_polygon` | `natural=water + water=river`, либо `waterway=riverbank` без `water=*` |
-| `reservoirs_polygon` | `natural=water + water=reservoir`, либо `landuse=reservoir` без `water=*` |
-| `lakes_polygon` | `natural=water + water=lake`, `oxbow` (старицы), `lagoon` |
+| `rivers_polygon` | `natural=water + water=river\|stream\|rapids`, либо `waterway=riverbank` без `water=*` |
+| `reservoirs_polygon` | `natural=water + water=reservoir\|basin\|fishpond\|wastewater\|reflecting_pool\|salt_pool`, либо `landuse=reservoir\|basin` без `water=*` |
+| `lakes_polygon` | `natural=water + water=lake\|oxbow\|lagoon\|pond\|stream_pool` (озёра, старицы, лагуны, пруды) |
+| `water_other_polygon` | `natural=water` с любым другим `water=*`: `canal`, `ditch`, `lock`, `moat`, `harbour` и др. (галочка `water_other`, включена) |
 | `water_unclassified` | `natural=water` без `water=*` (опционально) |
+| `wetlands_polygon` | `natural=wetland` с любым `wetland=*` или без него; устаревшие `natural=marsh\|bog\|fen\|swamp`; объекты с `wetland=*` без `natural=wetland` (например, `landuse=forest + wetland=swamp`, `landuse=meadow + wetland=wet_meadow`). Отдельная группа: болото может перекрываться с водоёмом (галочка `wetlands`, включена) |
+
+Значения `wetland_type_ru`: `bog` — верховое болото, `fen` — низинное, `string_bog` — грядово-мочажинное (аапа),
+`palsa_bog` — бугристое (пальза), `swamp` — заболоченный лес, `marsh` — травяное болото, марш, `wet_meadow` —
+заболоченный луг, `reedbed` — тростниковые заросли, плавни, `saltmarsh` — засолённый марш, `tidalflat` — приливная
+осушка, `mangrove` — мангры; без `wetland=*` — «болото (тип не указан)». Переходные болота в OSM отдельного значения
+не имеют и обычно размечены как `bog` или `fen`.
 | `seas_point` | `place=sea` (node/way/relation → точка center) |
 | `coastline_line` | `way[natural=coastline]` (опционально) |
 

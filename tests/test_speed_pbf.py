@@ -180,3 +180,21 @@ def test_pbf_select_extracts_prefers_small():
     ex = pb.select_extracts(box(4, 1, 6, 2), feats)
     assert sorted(x.id for x in ex) == ["south", "volga"]
     assert all(x.iso == ["RU"] for x in ex)
+
+
+def test_hydro_wetlands_and_ru_types():
+    from osmdwnl_core.recipes import load_recipe
+    from osmdwnl_core.recipes import match_any
+    r = load_recipe("hydro")
+    outs = {o.layer: o for o in r.outputs}
+    wet = outs["wetlands_polygon"]
+    src = next(s for s in r.sources if s.id == "wetland_polygons")
+    for tags in ({"natural": "wetland", "wetland": "bog"}, {"natural": "wetland"}, {"natural": "marsh"},
+                 {"landuse": "forest", "wetland": "swamp"}):
+        assert match_any(tags, src.filters), tags
+    assert not match_any({"natural": "water", "water": "lake"}, src.filters)
+    spec = next(f for f in wet.field_specs() if f.name == "wetland_type_ru")
+    assert spec.values_ru["swamp"].startswith("заболоченный лес")
+    assert match_any({"natural": "water", "water": "pond"}, outs["lakes_polygon"].where)
+    assert match_any({"natural": "water", "water": "canal"}, outs["water_other_polygon"].where)
+    assert not match_any({"natural": "water"}, outs["water_other_polygon"].where)

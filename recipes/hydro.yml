@@ -1,10 +1,12 @@
 # Гидрография (раздел 13.2 ТЗ)
 id: hydro
-version: 3
-label_ru: "Гидрография (моря, реки, озёра, водохранилища)"
+version: 4
+label_ru: "Гидрография (моря, реки, озёра, водохранилища, болота)"
 description_ru: >
-  Линейные реки, площадные русла, моря (полигоны и точки-подписи), озёра, водохранилища
-  и (опционально) береговая линия. Один OSM-объект попадает только в один площадной класс.
+  Линейные реки, площадные русла, моря (полигоны и точки-подписи), озёра и пруды всех типов,
+  водохранилища и искусственные водоёмы, прочие водоёмы (каналы, рвы, гавани), болота и заболоченные
+  земли всех типов (верховые, низинные, переходные, заболоченные леса и луга, плавни, марши)
+  и (опционально) береговая линия. Один OSM-объект попадает только в один водный класс.
 countries: [RU, KZ]            # по умолчанию; меняются в окне или параметром --countries
 output_name: "{recipe}__{aoi}__{date}.gpkg"
 clip_geometry: true
@@ -12,9 +14,13 @@ language:
   preferred: ["name:ru"]
   fallback: ["name"]
 params:
+  wetlands: true
+  water_other: true
   coastline: false
   water_unclassified: false
 param_labels_ru:
+  wetlands: "Болота и заболоченные земли (wetlands_polygon)"
+  water_other: "Прочие водоёмы: каналы, канавы, рвы, шлюзы, гавани (water_other_polygon)"
   coastline: "Береговая линия (coastline_line)"
   water_unclassified: "Водоёмы без water=* (water_unclassified)"
 sources:
@@ -28,21 +34,30 @@ sources:
     include_enclosing: true     # море, целиком содержащее тайл
     filters:
       - place: [sea, ocean]
-  - id: water_polygons
+  - id: water_polygons          # все natural=water с water=*, а также legacy-теги
     geometry: [way, relation]
     country_scope: area
     include_enclosing: true     # крупное озеро/водохранилище, целиком содержащее тайл
     filters:
       - natural: water
-        water: [river, lake, oxbow, lagoon, reservoir]
+        water: {exists: true}
       - waterway: riverbank
-      - landuse: reservoir
+      - landuse: [reservoir, basin]
   - id: water_noclass           # natural=water без water=* — только для слоя water_unclassified
     geometry: [way, relation]
     country_scope: area
     filters:
       - natural: water
         water: {exists: false}
+  - id: wetland_polygons        # болота всех типов: natural=wetland (+ wetland=*), устаревшие
+    geometry: [way, relation]   # natural=marsh|bog|fen|swamp и wetland=* на лесах/лугах
+    country_scope: area
+    include_enclosing: true     # крупное болото, целиком содержащее тайл
+    filters:
+      - natural: wetland
+      - natural: [marsh, bog, fen, swamp]
+      - wetland: true
+        natural: {not: wetland}
   - id: seas
     geometry: [nwr]
     geometry_output: center
@@ -59,6 +74,31 @@ outputs:
     geometry_type: MultiLineString
     operations: [deduplicate, make_valid, clip]
     fields: &hydro_fields
+      - name: water_type_ru
+        tag: "water|landuse|waterway"
+        values_ru: &water_ru
+          lake: "озеро"
+          oxbow: "старица"
+          lagoon: "лагуна"
+          pond: "пруд"
+          stream_pool: "плёс (водоём на ручье)"
+          reservoir: "водохранилище"
+          basin: "бассейн-накопитель"
+          fishpond: "рыбоводный пруд"
+          wastewater: "отстойник сточных вод"
+          reflecting_pool: "декоративный водоём"
+          river: "река"
+          riverbank: "река"
+          stream: "ручей"
+          rapids: "пороги"
+          canal: "канал"
+          ditch: "канава"
+          drain: "дренажный канал"
+          lock: "шлюз"
+          moat: "ров"
+          harbour: "гавань"
+          salt_pool: "солевой бассейн"
+        default_ru: "водоём (тип не указан)"
       - waterway
       - water
       - natural
@@ -68,8 +108,8 @@ outputs:
       - salt
       - tidal
       - wikidata
-  # --- площадные классы: exclusive_group, приоритет sea → river → reservoir → lake → unclassified;
-  #     новые теги (water=*) важнее legacy-тегов (waterway=riverbank, landuse=reservoir)
+  # --- площадные водоёмы: exclusive_group, приоритет sea → river → reservoir → lake → прочие →
+  #     unclassified; новые теги (water=*) важнее legacy-тегов (waterway=riverbank, landuse=reservoir)
   - layer: seas_polygon
     label_ru: "Моря (полигоны)"
     from: [sea_polygons]
@@ -80,37 +120,48 @@ outputs:
     operations: [deduplicate, make_valid, clip]
     fields: [place, natural, water, salt, wikidata]
   - layer: rivers_polygon
-    label_ru: "Реки (площадные)"
+    label_ru: "Реки и ручьи (площадные)"
     from: [water_polygons]
     geometry_type: MultiPolygon
     exclusive_group: water_areas
     where:
       - natural: water
-        water: river
+        water: [river, stream, rapids]
       - waterway: riverbank
         water: {exists: false}
     operations: [deduplicate, make_valid, clip]
     fields: *hydro_fields
   - layer: reservoirs_polygon
-    label_ru: "Водохранилища"
+    label_ru: "Водохранилища и искусственные водоёмы"
     from: [water_polygons]
     geometry_type: MultiPolygon
     exclusive_group: water_areas
     where:
       - natural: water
-        water: reservoir
-      - landuse: reservoir
+        water: [reservoir, basin, fishpond, wastewater, reflecting_pool, salt_pool]
+      - landuse: [reservoir, basin]
         water: {exists: false}
     operations: [deduplicate, make_valid, clip]
     fields: *hydro_fields
   - layer: lakes_polygon
-    label_ru: "Озёра (в т. ч. старицы и лагуны)"
+    label_ru: "Озёра и пруды (в т. ч. старицы и лагуны)"
     from: [water_polygons]
     geometry_type: MultiPolygon
     exclusive_group: water_areas
     where:
       - natural: water
-        water: [lake, oxbow, lagoon]
+        water: [lake, oxbow, lagoon, pond, stream_pool]
+    operations: [deduplicate, make_valid, clip]
+    fields: *hydro_fields
+  - layer: water_other_polygon
+    label_ru: "Прочие водоёмы (каналы, канавы, рвы, шлюзы, гавани и др.)"
+    from: [water_polygons]
+    geometry_type: MultiPolygon
+    exclusive_group: water_areas
+    enabled_if: water_other
+    where:
+      - natural: water
+        water: {regex: "."}
     operations: [deduplicate, make_valid, clip]
     fields: *hydro_fields
   - layer: water_unclassified
@@ -124,6 +175,43 @@ outputs:
         water: {exists: false}
     operations: [deduplicate, make_valid, clip]
     fields: *hydro_fields
+  # --- болота: отдельная группа (контур болота может перекрываться с водоёмом)
+  - layer: wetlands_polygon
+    label_ru: "Болота и заболоченные земли (все типы)"
+    from: [wetland_polygons]
+    geometry_type: MultiPolygon
+    exclusive_group: wetlands
+    enabled_if: wetlands
+    operations: [deduplicate, make_valid, clip]
+    fields:
+      - name: wetland_type_ru
+        tag: "wetland|natural"
+        values_ru:
+          bog: "верховое болото"
+          fen: "низинное болото"
+          string_bog: "грядово-мочажинное (аапа) болото"
+          palsa_bog: "бугристое болото (пальза)"
+          swamp: "заболоченный лес (лесное болото)"
+          marsh: "травяное болото, марш"
+          wet_meadow: "заболоченный луг"
+          reedbed: "тростниковые заросли, плавни"
+          saltmarsh: "засолённый марш"
+          tidalflat: "приливная осушка"
+          mangrove: "мангры"
+          wetland: "болото (тип не указан)"
+        default_ru: "болото (тип не указан)"
+      - wetland
+      - natural
+      - landuse
+      - leaf_type
+      - leaf_cycle
+      - wood
+      - peat
+      - intermittent
+      - seasonal
+      - salt
+      - tidal
+      - wikidata
   - layer: seas_point
     label_ru: "Моря (точки-подписи place=sea)"
     from: [seas]

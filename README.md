@@ -1,4 +1,4 @@
-# OSMdwnl 1.7.0
+# OSMdwnl 1.8.0
 
 Загрузка тематических слоёв OpenStreetMap для области интереса (AOI) в GeoPackage.
 **Один логический запрос (рецепт) — один файл `.gpkg`**; внутри может быть несколько слоёв
@@ -12,7 +12,7 @@ conda env create -f environment.yml
 conda activate osmdwnl
 copy config.example.yml config.yml        :: впишите свой контакт в overpass.user_agent
 python OSMdwnl.py --list-recipes
-python -m pytest -q tests                 :: 61 тест, сеть не нужна
+python -m pytest -q tests                 :: 62 теста, сеть не нужна
 ```
 
 ## Окно выбора файлов (GUI)
@@ -69,7 +69,7 @@ python OSMdwnl.py --bbox 50 49 52 51 --recipe hydro --dry-run
 | `roads` | `roads_main_line`; опционально `roads_local_line`, `roads_service_line`, `roads_track_line` | `local_roads=true`, `service_roads=true`, `tracks=true` |
 | `railways` | `railways_line`, `railway_stations_point`; опционально `railway_service_line`, `urban_rail_line`, `railway_inactive_line` | `stations=false`, `service_tracks=true`, `urban_rail=true`, `inactive=true` |
 | `settlements` | `settlements_point`, `settlements_polygon` | `points_from_polygons=false` — не добавлять точки для контуров без узла `place=*` |
-| `hydro` | `rivers_line`, `seas_polygon`, `rivers_polygon`, `reservoirs_polygon`, `lakes_polygon`, `seas_point`; опционально `coastline_line`, `water_unclassified` | `coastline=true`, `water_unclassified=true` |
+| `hydro` | `rivers_line`, `seas_polygon`, `rivers_polygon`, `reservoirs_polygon`, `lakes_polygon`, `water_other_polygon`, `wetlands_polygon`, `seas_point`; опционально `coastline_line`, `water_unclassified` | `wetlands=false`, `water_other=false`, `coastline=true`, `water_unclassified=true` |
 | `state_borders` | `state_border_line`; опционально `country_outlines` | `mode=all_target_borders` или `shared_only`, `include_maritime=true`, `country_outlines=true` |
 
 Страны рецептов по умолчанию — RU, KZ. Их меняют полем «Страны» в окне или параметром
