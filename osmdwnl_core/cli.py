@@ -66,6 +66,9 @@ def build_parser() -> argparse.ArgumentParser:
     o.add_argument("--format", choices=["gpkg", "shp"], default=None,
                    help="формат результата: gpkg — один GeoPackage (по умолчанию), "
                         "shp — папка Shapefile, по файлу на слой")
+    o.add_argument("--polygons-as-lines", choices=["no", "add", "replace"], default=None,
+                   help="полигоны → линии контуров: add — добавить слои <имя>_outline, "
+                        "replace — заменить полигональные слои линейными (no — по умолчанию)")
     o.add_argument("--output-crs", metavar="EPSG:XXXX", help="CRS результата (по умолчанию EPSG:4326)")
     c = o.add_mutually_exclusive_group()
     c.add_argument("--clip", dest="clip", action="store_true", default=None, help="обрезать геометрию по AOI")
@@ -320,6 +323,11 @@ def run(args) -> int:
         plan.notes = [nt for nt in plan.notes if not nt.startswith(("Ускорение", "Этап 2"))] + [
             f"PBF: выгрузки Geofabrik скачиваются в {target.parent / '_osm_pbf'} и удаляются после обработки",
             "PBF: страна объектов — по линиям госграниц (несколько лёгких запросов Overpass)"]
+    pal_mode = args.polygons_as_lines or config.output.polygons_as_lines
+    if pal_mode in ("add", "replace"):
+        plan.notes.append("Полигоны → линии: " + ("к полигональным слоям добавляются контуры <имя>_outline"
+                          if pal_mode == "add" else "полигональные слои заменяются контурами <имя>_outline")
+                          + "; линия обрезки по AOI в контур не входит")
     if output_format(args, config) == "shp":
         from .writers.shp import shp_dir_for
         print_plan(plan, aoi, recipe, Path(str(shp_dir_for(target)) + "  (Shapefile, файл на слой)"),
@@ -372,6 +380,13 @@ def run(args) -> int:
         if clip_on and "clip" in out.op_names():
             clipped_layers.add(out.layer)
     apply_links(recipe, layers, stats)
+    pal = args.polygons_as_lines or config.output.polygons_as_lines
+    if pal in ("add", "replace"):
+        from .transforms.outlines import polygons_to_lines
+        made = polygons_to_lines(layers, stats, expected, clipped_layers, pal, aoi.geometry)
+        if made:
+            log.info("Контуры полигонов (%s): %s", "добавлены" if pal == "add" else "вместо полигонов",
+                     ", ".join(made))
     _run_checks(recipe, store)
 
     total = sum(s["written"] for s in stats.values())

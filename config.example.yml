@@ -29,6 +29,7 @@ cache:
   # dir: "D:/GIS/OSMdwnl_cache"
 output:
   crs: "EPSG:4326"
+  polygons_as_lines: "no"     # no | add — добавить контуры <имя>_outline | replace — только контуры
   format: gpkg                 # gpkg — GeoPackage; shp — папка Shapefile, файл на слой
   spatial_index: true
   keep_tags_json: true

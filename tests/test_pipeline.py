@@ -382,3 +382,43 @@ def test_shapefile_output(tmp_path, patch_session):
     assert main(_args(tmp_path, "--bbox", "0", "0", "1", "1", "--recipe", "hydro", "--format", "shp",
                       "--overwrite")) == 0
     assert not list(out.glob("*.tmp_shp"))
+
+
+def test_polygons_as_lines(tmp_path, patch_session):
+    patch_session(lambda q: (200, _hydro_relations() if "rel(id:" in q else _hydro_response()))
+    assert main(_args(tmp_path, "--bbox", "0", "0", "1", "1", "--recipe", "hydro",
+                      "--polygons-as-lines", "add")) == 0
+    f = _only_gpkg(tmp_path)
+    lay = _layers(f)
+    assert "lakes_polygon" in lay and "lakes_outline" in lay and "wetlands_outline" in lay
+    poly = pyogrio.read_dataframe(f, layer="lakes_polygon")
+    ln = pyogrio.read_dataframe(f, layer="lakes_outline")
+    assert set(ln.geom_type) == {"MultiLineString"} and set(ln.osm_uid) == set(poly.osm_uid)
+    r50 = ln[ln.osm_uid == "r50"].iloc[0]
+    assert len(r50.geometry.geoms) == 2                   # внешнее и внутреннее кольца
+    assert abs(r50.geometry.length - poly[poly.osm_uid == "r50"].iloc[0].geometry.boundary.length) < 1e-9
+    import shutil
+    shutil.rmtree(tmp_path / "out")
+    assert main(_args(tmp_path, "--bbox", "0", "0", "1", "1", "--recipe", "hydro",
+                      "--polygons-as-lines", "replace")) == 0
+    lay = _layers(_only_gpkg(tmp_path))
+    assert "lakes_outline" in lay and "lakes_polygon" not in lay and "rivers_line" in lay
+
+
+def test_outline_strips_aoi_cut_edge():
+    import geopandas as gpd
+    from shapely.geometry import box
+    from osmdwnl_core.transforms.outlines import polygons_to_lines
+    aoi = box(0, 0, 1, 1)
+    g = box(0.5, 0.2, 1.5, 0.8).intersection(aoi)        # обрезан по восточной границе AOI
+    whole = box(-1, -1, 2, 2).intersection(aoi)           # накрывает AOI целиком — контура нет
+    gdf = gpd.GeoDataFrame({"osm_uid": ["w1", "w2"], "part_no": [0, 0], "is_clipped": [1, 1]},
+                           geometry=[g, whole], crs="EPSG:4326")
+    layers = {"x_polygon": (gdf, "MultiPolygon", "x")}
+    stats = {"x_polygon": {"written": 2}}
+    expected = {"x_polygon": "MultiPolygon"}
+    made = polygons_to_lines(layers, stats, expected, set(), "replace", aoi)
+    assert made == ["x_outline"] and list(layers) == ["x_outline"]
+    out = layers["x_outline"][0]
+    assert list(out.osm_uid) == ["w1"] and abs(out.geometry.iloc[0].length - 1.6) < 1e-6
+    assert stats["x_outline"]["written"] == 1

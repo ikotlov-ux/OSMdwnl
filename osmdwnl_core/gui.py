@@ -33,6 +33,8 @@ VECTOR_TYPES = [
 SETTINGS = default_data_dir() / "gui_settings.json"
 FORMAT_CHOICES = {"GeoPackage (.gpkg)": "gpkg",
                   "Shapefile (.shp), папка с файлом на слой": "shp"}
+LINES_CHOICES = {"оставить полигонами": "no", "добавить контуры линиями": "add",
+                 "только контуры линиями": "replace"}
 SOURCE_CHOICES = {"авто (для больших AOI предложить PBF)": "auto", "Overpass API": "overpass",
                   "PBF Geofabrik (скачать выгрузки)": "pbf"}
 CLIP_CHOICES = {"как в рецепте": None, "обрезать по AOI": "--clip", "сохранять объекты целиком": "--no-clip"}
@@ -83,7 +85,7 @@ class App:
                 "aoi_mode": self.mode_var.get(), "clip": self.clip_var.get(),
                 "crs": self.crs_var.get(), "overwrite": self.overwrite_var.get(),
                 "countries": self.countries_var.get(), "source": self.source_var.get(),
-                "format": self.format_var.get()}
+                "format": self.format_var.get(), "poly_lines": self.lines_var.get()}
         try:
             SETTINGS.parent.mkdir(parents=True, exist_ok=True)
             SETTINGS.write_text(json.dumps(data, ensure_ascii=False, indent=1), encoding="utf-8")
@@ -217,6 +219,11 @@ class App:
         self.format_var = tk.StringVar(value=fmt if fmt in FORMAT_CHOICES else next(iter(FORMAT_CHOICES)))
         ttk.Combobox(fo, textvariable=self.format_var, values=list(FORMAT_CHOICES), state="readonly",
                      width=36).grid(row=6, column=1, sticky="w", padx=4, pady=(4, 0))
+        ttk.Label(fo, text="Полигоны:").grid(row=7, column=0, sticky="w", pady=(4, 0))
+        pl = self.settings.get("poly_lines")
+        self.lines_var = tk.StringVar(value=pl if pl in LINES_CHOICES else next(iter(LINES_CHOICES)))
+        ttk.Combobox(fo, textvariable=self.lines_var, values=list(LINES_CHOICES), state="readonly",
+                     width=36).grid(row=7, column=1, sticky="w", padx=4, pady=(4, 0))
 
         # --- кнопки
         fbtn = ttk.Frame(main)
@@ -423,7 +430,8 @@ class App:
         out = self.out_var.get().strip()
         if not out and not dry:
             raise ValueError("Укажите папку результата.")
-        common = ["-y", "--format", FORMAT_CHOICES.get(self.format_var.get(), "gpkg")]
+        common = ["-y", "--format", FORMAT_CHOICES.get(self.format_var.get(), "gpkg"),
+                  "--polygons-as-lines", LINES_CHOICES.get(self.lines_var.get(), "no")]
         cc = [c.strip().upper() for c in re.split(r"[,;\s]+", self.countries_var.get()) if c.strip()]
         bad = [c for c in cc if not re.fullmatch(r"[A-Z]{2}", c)]
         if bad:

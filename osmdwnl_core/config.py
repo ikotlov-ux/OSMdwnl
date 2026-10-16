@@ -70,6 +70,7 @@ class CacheConfig(BaseModel):
 class OutputConfig(BaseModel):
     crs: str = "EPSG:4326"
     format: str = "gpkg"                       # gpkg | shp
+    polygons_as_lines: str = "no"              # no | add | replace — контуры полигонов линиями
     spatial_index: bool = True
     keep_tags_json: bool = True
     overwrite: bool = False
