@@ -63,6 +63,9 @@ def build_parser() -> argparse.ArgumentParser:
     r.add_argument("--allow-raw-query", action="store_true", help="разрешить рецепты type: raw_overpass")
     o = p.add_argument_group("Вывод")
     o.add_argument("--output", metavar="DIR|FILE.gpkg", help="папка или имя .gpkg")
+    o.add_argument("--format", choices=["gpkg", "shp"], default=None,
+                   help="формат результата: gpkg — один GeoPackage (по умолчанию), "
+                        "shp — папка Shapefile, по файлу на слой")
     o.add_argument("--output-crs", metavar="EPSG:XXXX", help="CRS результата (по умолчанию EPSG:4326)")
     c = o.add_mutually_exclusive_group()
     c.add_argument("--clip", dest="clip", action="store_true", default=None, help="обрезать геометрию по AOI")
@@ -195,10 +198,20 @@ def _params(items: list[str]) -> dict[str, str]:
     return out
 
 
+def output_format(args, config) -> str:
+    if args.format:
+        return args.format
+    if args.output and Path(args.output).suffix.lower() == ".shp":
+        return "shp"
+    return config.output.format
+
+
 def output_path(args, recipe: Recipe, aoi: AOIModel) -> Path:
     out = Path(args.output or ".")
     if out.suffix.lower() == ".gpkg":
         return out
+    if out.suffix.lower() == ".shp":
+        return out.with_suffix(".gpkg")
     name = recipe.output_name.format(recipe=recipe.id, aoi=aoi.name, date=f"{date.today():%Y%m%d}")
     if not name.lower().endswith(".gpkg"):
         name += ".gpkg"
@@ -307,11 +320,21 @@ def run(args) -> int:
         plan.notes = [nt for nt in plan.notes if not nt.startswith(("Ускорение", "Этап 2"))] + [
             f"PBF: выгрузки Geofabrik скачиваются в {target.parent / '_osm_pbf'} и удаляются после обработки",
             "PBF: страна объектов — по линиям госграниц (несколько лёгких запросов Overpass)"]
-    print_plan(plan, aoi, recipe, target, show_queries=args.dry_run)
+    if output_format(args, config) == "shp":
+        from .writers.shp import shp_dir_for
+        print_plan(plan, aoi, recipe, Path(str(shp_dir_for(target)) + "  (Shapefile, файл на слой)"),
+                   show_queries=args.dry_run)
+    else:
+        print_plan(plan, aoi, recipe, target, show_queries=args.dry_run)
     if args.dry_run:
         print("--dry-run: сеть не использовалась.")
         return 0
-    check_target(target, args.overwrite or config.output.overwrite)
+    fmt = output_format(args, config)
+    if fmt == "shp":
+        from .writers.shp import check_shp_target, shp_dir_for
+        check_shp_target(shp_dir_for(target), args.overwrite or config.output.overwrite)
+    else:
+        check_target(target, args.overwrite or config.output.overwrite)
     if is_tty and not args.yes and len(plan.tiles) > 4:
         if _ask(f"Выполнить {len(plan.tiles)} тайловых запросов? (y/n)", "y").lower() not in ("y", "yes", "д", "да"):
             print("Отменено.")
@@ -367,13 +390,20 @@ def run(args) -> int:
             log.error("QC: %s", e)
         raise QualityError("Контроль качества не пройден", cause="; ".join(rep.errors[:5]),
                            action=f"Промежуточный файл сохранён: {tmp}")
-    final = writer.commit()
+    if fmt == "shp":
+        from .writers.shp import export_shapefiles, folder_size, shp_dir_for
+        final = export_shapefiles(tmp, shp_dir_for(target), list(expected))
+        tmp.unlink(missing_ok=True)
+        size_bytes = folder_size(final)
+    else:
+        final = writer.commit()
+        size_bytes = final.stat().st_size
     if backend == "pbf" and not args.pbf_batch:
         from .pbf_backend import cleanup, pbf_dir_for
         cleanup(pbf_dir_for(target), keep_pbf=args.keep_pbf or config.pbf.keep_files)
     if args.keep_raw and cache.enabled:
         log.info("Сырые ответы: %s", cache.keep_raw(run_id))
-    size_mb = final.stat().st_size / 1048576
+    size_mb = size_bytes / 1048576
     log.info("Готово: %s (%.2f МБ), QC: %d проверок, предупреждений: %d", final, size_mb, rep.checks,
              len(store.warnings))
     print(f"\nРезультат: {final}  ({size_mb:.2f} МБ)")
@@ -381,7 +411,7 @@ def run(args) -> int:
     if log_file:
         print(f"Журнал: {log_file}")
     if status == "no_features":
-        print("Объектов в AOI не найдено: создан GeoPackage с пустыми слоями (status=no_features).")
+        print("Объектов в AOI не найдено: созданы пустые слои (status=no_features).")
         if args.fail_on_empty:
             raise QualityError("Результат пуст (--fail-on-empty)")
     return 0

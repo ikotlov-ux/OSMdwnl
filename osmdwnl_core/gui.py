@@ -31,6 +31,8 @@ VECTOR_TYPES = [
     ("KML", "*.kml *.kmz"), ("Все файлы", "*.*"),
 ]
 SETTINGS = default_data_dir() / "gui_settings.json"
+FORMAT_CHOICES = {"GeoPackage (.gpkg)": "gpkg",
+                  "Shapefile (.shp), папка с файлом на слой": "shp"}
 SOURCE_CHOICES = {"авто (для больших AOI предложить PBF)": "auto", "Overpass API": "overpass",
                   "PBF Geofabrik (скачать выгрузки)": "pbf"}
 CLIP_CHOICES = {"как в рецепте": None, "обрезать по AOI": "--clip", "сохранять объекты целиком": "--no-clip"}
@@ -80,7 +82,8 @@ class App:
                 "recipes": [r.id for r in self.recipes if self.rec_vars[r.id].get()],
                 "aoi_mode": self.mode_var.get(), "clip": self.clip_var.get(),
                 "crs": self.crs_var.get(), "overwrite": self.overwrite_var.get(),
-                "countries": self.countries_var.get(), "source": self.source_var.get()}
+                "countries": self.countries_var.get(), "source": self.source_var.get(),
+                "format": self.format_var.get()}
         try:
             SETTINGS.parent.mkdir(parents=True, exist_ok=True)
             SETTINGS.write_text(json.dumps(data, ensure_ascii=False, indent=1), encoding="utf-8")
@@ -121,7 +124,7 @@ class App:
         ttk.Radiobutton(mf, text="по точной геометрии", value="geometry", variable=self.mode_var).pack(side="left")
 
         # --- рецепты
-        frl = ttk.LabelFrame(main, text="2. Рецепты (каждый - отдельный GeoPackage)", padding=6)
+        frl = ttk.LabelFrame(main, text="2. Рецепты (каждый - отдельный результат)", padding=6)
         frl.grid(row=0, column=1, rowspan=2, sticky="nsew", **pad)
         frl.rowconfigure(0, weight=1)
         frl.columnconfigure(0, weight=1)
@@ -209,6 +212,11 @@ class App:
         self.source_var = tk.StringVar(value=src if src in SOURCE_CHOICES else next(iter(SOURCE_CHOICES)))
         ttk.Combobox(fo, textvariable=self.source_var, values=list(SOURCE_CHOICES), state="readonly",
                      width=36).grid(row=5, column=1, sticky="w", padx=4, pady=(4, 0))
+        ttk.Label(fo, text="Формат:").grid(row=6, column=0, sticky="w", pady=(4, 0))
+        fmt = self.settings.get("format")
+        self.format_var = tk.StringVar(value=fmt if fmt in FORMAT_CHOICES else next(iter(FORMAT_CHOICES)))
+        ttk.Combobox(fo, textvariable=self.format_var, values=list(FORMAT_CHOICES), state="readonly",
+                     width=36).grid(row=6, column=1, sticky="w", padx=4, pady=(4, 0))
 
         # --- кнопки
         fbtn = ttk.Frame(main)
@@ -304,7 +312,7 @@ class App:
         self.aois.clear()
 
     def pick_output(self):
-        d = filedialog.askdirectory(parent=self.root, title="Папка для GeoPackage",
+        d = filedialog.askdirectory(parent=self.root, title="Папка для результатов",
                                     initialdir=self.out_var.get() or self.settings.get("last_dir") or str(Path.home()))
         if d:
             self.out_var.set(d)
@@ -415,7 +423,7 @@ class App:
         out = self.out_var.get().strip()
         if not out and not dry:
             raise ValueError("Укажите папку результата.")
-        common = ["-y"]
+        common = ["-y", "--format", FORMAT_CHOICES.get(self.format_var.get(), "gpkg")]
         cc = [c.strip().upper() for c in re.split(r"[,;\s]+", self.countries_var.get()) if c.strip()]
         bad = [c for c in cc if not re.fullmatch(r"[A-Z]{2}", c)]
         if bad:
@@ -524,7 +532,7 @@ class App:
             except Exception:  # noqa: BLE001
                 writer.write(traceback.format_exc())
                 code = 1
-            m = re.findall(r"^Результат: (.+?\.gpkg)", captured.getvalue(), flags=re.M)
+            m = re.findall(r"^Результат: (.+?)  \(\d", captured.getvalue(), flags=re.M)
             results.append((label, code, m[-1] if m else ""))
             self.q.put(("progress", i, len(jobs)))
         for folder in getattr(self, "_pbf_dirs", []):

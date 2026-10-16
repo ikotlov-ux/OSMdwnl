@@ -20,7 +20,7 @@ params:
   water_unclassified: false
 param_labels_ru:
   wetlands: "Болота и заболоченные земли (wetlands_polygon)"
-  water_other: "Прочие водоёмы: каналы, канавы, рвы, шлюзы, гавани (water_other_polygon)"
+  water_other: "Каналы, рвы, шлюзы, гавани (water_other_polygon)"
   coastline: "Береговая линия (coastline_line)"
   water_unclassified: "Водоёмы без water=* (water_unclassified)"
 sources:

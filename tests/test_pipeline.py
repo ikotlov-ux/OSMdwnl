@@ -360,3 +360,25 @@ def test_roads_layers(tmp_path, patch_session):
     t = pyogrio.read_dataframe(f, layer="roads_track_line")
     assert list(t.osm_uid) == ["w2"] and t.iloc[0].tracktype == "grade3"
     assert "roads_local_line" not in _layers(f)
+
+
+def test_shapefile_output(tmp_path, patch_session):
+    patch_session(lambda q: (200, _hydro_relations() if "rel(id:" in q else _hydro_response()))
+    assert main(_args(tmp_path, "--bbox", "0", "0", "1", "1", "--recipe", "hydro", "--format", "shp")) == 0
+    out = tmp_path / "out"
+    assert not list(out.glob("*.gpkg"))
+    folder = next(p for p in out.iterdir() if p.is_dir() and not p.name.startswith("_"))
+    names = {p.name for p in folder.iterdir()}
+    for layer in ("rivers_line", "lakes_polygon", "wetlands_polygon", "seas_point"):
+        assert {f"{layer}.shp", f"{layer}.dbf", f"{layer}.prj", f"{layer}.cpg"} <= names
+    assert {"osm_download_metadata.csv", "osm_layer_statistics.csv", "_fields.csv"} <= names
+    lake = pyogrio.read_dataframe(folder / "lakes_polygon.shp")
+    assert set(lake.osm_uid) == {"w11", "r50"}
+    assert all(len(c) <= 10 for c in lake.columns)
+    assert isinstance(lake.downloaded.iloc[0], str)
+    assert len(pyogrio.read_dataframe(folder / "wetlands_polygon.shp")) == 0
+    # повтор без --overwrite — ошибка, с --overwrite — замена папки
+    assert main(_args(tmp_path, "--bbox", "0", "0", "1", "1", "--recipe", "hydro", "--format", "shp")) != 0
+    assert main(_args(tmp_path, "--bbox", "0", "0", "1", "1", "--recipe", "hydro", "--format", "shp",
+                      "--overwrite")) == 0
+    assert not list(out.glob("*.tmp_shp"))

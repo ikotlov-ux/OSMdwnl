@@ -69,6 +69,7 @@ class CacheConfig(BaseModel):
 
 class OutputConfig(BaseModel):
     crs: str = "EPSG:4326"
+    format: str = "gpkg"                       # gpkg | shp
     spatial_index: bool = True
     keep_tags_json: bool = True
     overwrite: bool = False

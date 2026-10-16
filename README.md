@@ -1,4 +1,4 @@
-# OSMdwnl 1.8.0
+# OSMdwnl 1.9.0
 
 Загрузка тематических слоёв OpenStreetMap для области интереса (AOI) в GeoPackage.
 **Один логический запрос (рецепт) — один файл `.gpkg`**; внутри может быть несколько слоёв
@@ -12,7 +12,7 @@ conda env create -f environment.yml
 conda activate osmdwnl
 copy config.example.yml config.yml        :: впишите свой контакт в overpass.user_agent
 python OSMdwnl.py --list-recipes
-python -m pytest -q tests                 :: 62 теста, сеть не нужна
+python -m pytest -q tests                 :: 63 теста, сеть не нужна
 ```
 
 ## Окно выбора файлов (GUI)
@@ -59,6 +59,27 @@ python OSMdwnl.py --bbox 50 49 52 51 --recipe hydro --dry-run
 Текстовый интерактивный режим в консоли: `python OSMdwnl.py --console`.
 
 Имя файла по умолчанию: `{recipe}__{aoi}__{YYYYMMDD}.gpkg`. Можно передать `--output путь\файл.gpkg`.
+
+### Формат результата: GeoPackage или Shapefile (с 1.9.0)
+
+В окне — поле «Формат», в командной строке — `--format gpkg|shp` (по умолчанию `gpkg`, в `config.yml` — `output.format`).
+
+```bat
+python OSMdwnl.py --aoi "D:\GIS\aoi.shp" --recipe hydro --format shp --output "D:\GIS\OSM"
+```
+
+При `shp` создаётся папка `{recipe}__{aoi}__{YYYYMMDD}` с одним `.shp` на слой (`.dbf` в UTF-8, `.cpg`, `.prj`,
+индекс `.qix`). Ограничения формата учтены так:
+
+- имена полей DBF — не длиннее 10 символов (`name_display` → `name_disp`, `wetland_type_ru` → `wltype_ru`);
+  полное соответствие — в `_fields.csv`;
+- дата и время (`osm_time`, `downloaded`) — текстом ISO 8601;
+- все теги OSM (`tags_json`) — в `<слой>_tags.csv`, связь по `osm_uid` и `part_no`;
+- служебные таблицы (`osm_download_metadata`, `osm_layer_statistics`, `osm_processing_warnings` и др.) — CSV;
+- текст длиннее 254 символов обрезается (число таких значений — в журнале); слой больше 2 ГБ — ошибка
+  с советом сохранить в GeoPackage.
+
+Перед экспортом результат собирается и проверяется как GeoPackage, затем промежуточный `.gpkg` удаляется.
 
 ## Рецепты
 
