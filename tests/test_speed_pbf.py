@@ -198,3 +198,21 @@ def test_hydro_wetlands_and_ru_types():
     assert match_any({"natural": "water", "water": "pond"}, outs["lakes_polygon"].where)
     assert match_any({"natural": "water", "water": "canal"}, outs["water_other_polygon"].where)
     assert not match_any({"natural": "water"}, outs["water_other_polygon"].where)
+
+
+def test_hydro_v5_linear_drains_and_streams():
+    from osmdwnl_core.recipes import load_recipe, match_any
+    r = load_recipe("hydro")
+    assert r.version == 5
+    srcs = {s.id: s for s in r.sources}
+    outs = {o.layer: o for o in r.outputs}
+    for w in ("canal", "drain", "ditch", "derelict_canal", "pressurised"):
+        assert match_any({"waterway": w}, srcs["canal_drain_lines"].filters), w
+    for w in ("stream", "wadi", "drystream", "tidal_channel"):
+        assert match_any({"waterway": w}, srcs["stream_lines"].filters), w
+    assert match_any({"natural": "mud"}, srcs["wetland_polygons"].filters)
+    assert match_any({"landuse": "peat_cutting"}, srcs["wetland_polygons"].filters)
+    assert match_any({"waterway": "ditch", "area": "yes"}, outs["water_other_polygon"].where)
+    assert match_any({"landuse": "aquaculture"}, outs["reservoirs_polygon"].where)
+    active = {o.layer for o in r.active_outputs()}
+    assert {"rivers_line", "streams_line", "canals_drains_line", "wetlands_polygon", "water_other_polygon"} <= active

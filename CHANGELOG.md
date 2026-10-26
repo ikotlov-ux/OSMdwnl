@@ -1,5 +1,19 @@
 # Журнал изменений
 
+## 1.11.0 — 2026-10-26
+
+- Рецепт `hydro` (версия 5): добавлена вся линейная гидросеть и дополнительные типы гидрообъектов.
+  - `streams_line` (включён по умолчанию) — ручьи, пересыхающие русла, вади и балки
+    (`waterway=stream|wadi|drystream|tidal_channel`).
+  - `canals_drains_line` (включён по умолчанию) — каналы, дренажные канавы, водоотводные коллекторы,
+    заброшенные каналы и напорные водоводы (`waterway=canal|drain|ditch|derelict_canal|pressurised`).
+  - Опционально: `dams_line` и `dams_polygon` (`waterway=dam|weir`), `springs_point`
+    (`natural=spring|hot_spring|geyser`, `waterway=waterfall`).
+  - В `reservoirs_polygon` добавлены `landuse=salt_pond|aquaculture` и `water=salt_pond`.
+  - В `water_other_polygon` добавлены замкнутые контуры `waterway=canal|drain|ditch|boatyard|dock` с `area=yes`.
+  - В `wetlands_polygon` добавлены `natural=mud` (такыры, грязи) и `landuse=peat_cutting` (торфоразработки).
+  - Линейные слои дополнены атрибутами `usage`, `width`, `tunnel`, `culvert`, `bridge`, `layer`, `boat`, `cemt`, `lock`.
+
 ## 1.10.0 — 2026-10-16
 
 - Полигоны → линии: поле «Полигоны» в окне (оставить полигонами / добавить контуры линиями / только контуры

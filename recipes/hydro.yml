@@ -1,12 +1,14 @@
 # Гидрография (раздел 13.2 ТЗ)
 id: hydro
-version: 4
-label_ru: "Гидрография (моря, реки, озёра, водохранилища, болота)"
+version: 5
+label_ru: "Гидрография (реки, каналы, водоёмы, болота)"
 description_ru: >
-  Линейные реки, площадные русла, моря (полигоны и точки-подписи), озёра и пруды всех типов,
-  водохранилища и искусственные водоёмы, прочие водоёмы (каналы, рвы, гавани), болота и заболоченные
-  земли всех типов (верховые, низинные, переходные, заболоченные леса и луга, плавни, марши)
-  и (опционально) береговая линия. Один OSM-объект попадает только в один водный класс.
+  Линейная гидросеть (реки, ручьи, каналы, дренажные канавы, вади/балки, напорные водоводы,
+  плотины и водосливы), площадные русла, моря (полигоны и точки-подписи), озёра и пруды всех типов,
+  водохранилища и искусственные водоёмы, прочие водоёмы (каналы, дренажные канавы, рвы, шлюзы, гавани),
+  болота и заболоченные земли всех типов (верховые, низинные, переходные, заболоченные леса и луга,
+  плавни, марши, торфоразработки, такыры и грязи), родники и водопады, и (опционально) береговая линия.
+  Один OSM-объект попадает только в один водный класс.
 countries: [RU, KZ]            # по умолчанию; меняются в окне или параметром --countries
 output_name: "{recipe}__{aoi}__{date}.gpkg"
 clip_geometry: true
@@ -14,13 +16,21 @@ language:
   preferred: ["name:ru"]
   fallback: ["name"]
 params:
+  streams: true
+  canals_drains: true
   wetlands: true
   water_other: true
+  dams_weirs: false
+  springs: false
   coastline: false
   water_unclassified: false
 param_labels_ru:
+  streams: "Ручьи, пересыхающие русла и балки (streams_line)"
+  canals_drains: "Каналы и дренажные канавы (canals_drains_line)"
   wetlands: "Болота и заболоченные земли (wetlands_polygon)"
-  water_other: "Каналы, рвы, шлюзы, гавани (water_other_polygon)"
+  water_other: "Площадные каналы, рвы, гавани (water_other_polygon)"
+  dams_weirs: "Плотины и водосливы (dams_line, dams_polygon)"
+  springs: "Родники, ключи и водопады (springs_point)"
   coastline: "Береговая линия (coastline_line)"
   water_unclassified: "Водоёмы без water=* (water_unclassified)"
 sources:
@@ -29,6 +39,28 @@ sources:
     country_scope: area
     filters:
       - waterway: river
+  - id: stream_lines
+    geometry: [way]
+    country_scope: area
+    filters:
+      - waterway: [stream, wadi, drystream, tidal_channel]
+  - id: canal_drain_lines
+    geometry: [way]
+    country_scope: area
+    filters:
+      - waterway: [canal, drain, ditch, derelict_canal, pressurised]
+  - id: dam_ways
+    geometry: [way, relation]
+    country_scope: area
+    filters:
+      - waterway: [dam, weir]
+  - id: spring_points
+    geometry: [nwr]
+    geometry_output: center
+    country_scope: area
+    filters:
+      - natural: [spring, hot_spring, geyser]
+      - waterway: waterfall
   - id: sea_polygons            # моря, в т. ч. Каспийское (natural=water + water=lake + place=sea)
     geometry: [way, relation]
     include_enclosing: true     # море, целиком содержащее тайл
@@ -41,8 +73,8 @@ sources:
     filters:
       - natural: water
         water: {exists: true}
-      - waterway: riverbank
-      - landuse: [reservoir, basin]
+      - waterway: [riverbank, canal, drain, ditch, boatyard, dock]
+      - landuse: [reservoir, basin, salt_pond, aquaculture]
   - id: water_noclass           # natural=water без water=* — только для слоя water_unclassified
     geometry: [way, relation]
     country_scope: area
@@ -50,12 +82,13 @@ sources:
       - natural: water
         water: {exists: false}
   - id: wetland_polygons        # болота всех типов: natural=wetland (+ wetland=*), устаревшие
-    geometry: [way, relation]   # natural=marsh|bog|fen|swamp и wetland=* на лесах/лугах
+    geometry: [way, relation]   # natural=marsh|bog|fen|swamp|mud, торфоразработки и wetland=* на лесах/лугах
     country_scope: area
     include_enclosing: true     # крупное болото, целиком содержащее тайл
     filters:
       - natural: wetland
-      - natural: [marsh, bog, fen, swamp]
+      - natural: [marsh, bog, fen, swamp, mud]
+      - landuse: peat_cutting
       - wetland: true
         natural: {not: wetland}
   - id: seas
@@ -73,9 +106,9 @@ outputs:
     from: [river_lines]
     geometry_type: MultiLineString
     operations: [deduplicate, make_valid, clip]
-    fields: &hydro_fields
+    fields: &hydro_line_fields
       - name: water_type_ru
-        tag: "water|landuse|waterway"
+        tag: "water|landuse|waterway|natural"
         values_ru: &water_ru
           lake: "озеро"
           oxbow: "старица"
@@ -90,24 +123,69 @@ outputs:
           river: "река"
           riverbank: "река"
           stream: "ручей"
+          wadi: "сухое русло (вади, балка)"
+          drystream: "пересыхающий ручей"
+          tidal_channel: "приливная протока"
           rapids: "пороги"
           canal: "канал"
-          ditch: "канава"
-          drain: "дренажный канал"
+          derelict_canal: "заброшенный канал"
+          ditch: "дренажная канава"
+          drain: "дренажный канал (водоотвод)"
+          pressurised: "напорный водовод (дюкер)"
           lock: "шлюз"
           moat: "ров"
           harbour: "гавань"
+          dock: "док"
+          boatyard: "верфь"
           salt_pool: "солевой бассейн"
+          salt_pond: "соляной пруд"
+          aquaculture: "аквакультура (рыбхоз)"
+          dam: "плотина"
+          weir: "водослив"
+          spring: "родник (ключ)"
+          hot_spring: "термальный источник"
+          geyser: "гейзер"
+          waterfall: "водопад"
         default_ru: "водоём (тип не указан)"
       - waterway
       - water
       - natural
       - landuse
+      - usage
+      - width
       - intermittent
       - seasonal
+      - tunnel
+      - culvert
+      - bridge
+      - {name: layer, tag: layer, type: int}
+      - boat
+      - cemt
+      - lock
       - salt
       - tidal
       - wikidata
+  - layer: streams_line
+    label_ru: "Ручьи, пересыхающие русла, вади и балки (линии)"
+    from: [stream_lines]
+    geometry_type: MultiLineString
+    enabled_if: streams
+    operations: [deduplicate, make_valid, clip]
+    fields: *hydro_line_fields
+  - layer: canals_drains_line
+    label_ru: "Каналы, дренажные канавы и коллекторы (линии)"
+    from: [canal_drain_lines]
+    geometry_type: MultiLineString
+    enabled_if: canals_drains
+    operations: [deduplicate, make_valid, clip]
+    fields: *hydro_line_fields
+  - layer: dams_line
+    label_ru: "Плотины и водосливы (линии)"
+    from: [dam_ways]
+    geometry_type: MultiLineString
+    enabled_if: dams_weirs
+    operations: [deduplicate, make_valid, clip]
+    fields: *hydro_line_fields
   # --- площадные водоёмы: exclusive_group, приоритет sea → river → reservoir → lake → прочие →
   #     unclassified; новые теги (water=*) важнее legacy-тегов (waterway=riverbank, landuse=reservoir)
   - layer: seas_polygon
@@ -130,7 +208,20 @@ outputs:
       - waterway: riverbank
         water: {exists: false}
     operations: [deduplicate, make_valid, clip]
-    fields: *hydro_fields
+    fields: &hydro_fields
+      - name: water_type_ru
+        tag: "water|landuse|waterway|natural"
+        values_ru: *water_ru
+        default_ru: "водоём (тип не указан)"
+      - waterway
+      - water
+      - natural
+      - landuse
+      - intermittent
+      - seasonal
+      - salt
+      - tidal
+      - wikidata
   - layer: reservoirs_polygon
     label_ru: "Водохранилища и искусственные водоёмы"
     from: [water_polygons]
@@ -138,8 +229,8 @@ outputs:
     exclusive_group: water_areas
     where:
       - natural: water
-        water: [reservoir, basin, fishpond, wastewater, reflecting_pool, salt_pool]
-      - landuse: [reservoir, basin]
+        water: [reservoir, basin, fishpond, wastewater, reflecting_pool, salt_pool, salt_pond]
+      - landuse: [reservoir, basin, salt_pond, aquaculture]
         water: {exists: false}
     operations: [deduplicate, make_valid, clip]
     fields: *hydro_fields
@@ -162,6 +253,9 @@ outputs:
     where:
       - natural: water
         water: {regex: "."}
+      - waterway: [canal, drain, ditch, boatyard, dock]
+        area: "yes"
+        water: {exists: false}
     operations: [deduplicate, make_valid, clip]
     fields: *hydro_fields
   - layer: water_unclassified
@@ -175,6 +269,16 @@ outputs:
         water: {exists: false}
     operations: [deduplicate, make_valid, clip]
     fields: *hydro_fields
+  - layer: dams_polygon
+    label_ru: "Плотины и водосливы (площадные)"
+    from: [dam_ways]
+    geometry_type: MultiPolygon
+    enabled_if: dams_weirs
+    where:
+      - waterway: [dam, weir]
+        area: "yes"
+    operations: [deduplicate, make_valid, clip]
+    fields: *hydro_fields
   # --- болота: отдельная группа (контур болота может перекрываться с водоёмом)
   - layer: wetlands_polygon
     label_ru: "Болота и заболоченные земли (все типы)"
@@ -185,7 +289,7 @@ outputs:
     operations: [deduplicate, make_valid, clip]
     fields:
       - name: wetland_type_ru
-        tag: "wetland|natural"
+        tag: "wetland|natural|landuse"
         values_ru:
           bog: "верховое болото"
           fen: "низинное болото"
@@ -198,6 +302,8 @@ outputs:
           saltmarsh: "засолённый марш"
           tidalflat: "приливная осушка"
           mangrove: "мангры"
+          mud: "такыр, грязи, илистая осушка"
+          peat_cutting: "торфоразработки"
           wetland: "болото (тип не указан)"
         default_ru: "болото (тип не указан)"
       - wetland
@@ -212,6 +318,13 @@ outputs:
       - salt
       - tidal
       - wikidata
+  - layer: springs_point
+    label_ru: "Родники, ключи и водопады (точки)"
+    from: [spring_points]
+    geometry_type: Point
+    enabled_if: springs
+    operations: [deduplicate, clip]
+    fields: *hydro_fields
   - layer: seas_point
     label_ru: "Моря (точки-подписи place=sea)"
     from: [seas]

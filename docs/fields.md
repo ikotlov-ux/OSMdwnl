@@ -45,6 +45,9 @@
 | Слой | Правило |
 |---|---|
 | `rivers_line` | `way[waterway=river]` |
+| `streams_line` | `way[waterway=stream\|wadi\|drystream\|tidal_channel]` (ручьи, пересыхающие русла, вади, балки; галочка `streams`, включена) |
+| `canals_drains_line` | `way[waterway=canal\|drain\|ditch\|derelict_canal\|pressurised]` (каналы, дренажные канавы, водоотводы, коллекторы, дюкеры; галочка `canals_drains`, включена) |
+| `dams_line`, `dams_polygon` | `waterway=dam\|weir` (плотины и водосливы; галочка `dams_weirs`) |
 | `seas_polygon` | `place=sea` или `place=ocean` (way/multipolygon); Каспийское море (`natural=water + water=lake + place=sea`) попадает сюда, а не в озёра |
 | `rivers_polygon` | `natural=water + water=river\|stream\|rapids`, либо `waterway=riverbank` без `water=*` |
 | `reservoirs_polygon` | `natural=water + water=reservoir\|basin\|fishpond\|wastewater\|reflecting_pool\|salt_pool`, либо `landuse=reservoir\|basin` без `water=*` |
@@ -58,6 +61,7 @@
 заболоченный луг, `reedbed` — тростниковые заросли, плавни, `saltmarsh` — засолённый марш, `tidalflat` — приливная
 осушка, `mangrove` — мангры; без `wetland=*` — «болото (тип не указан)». Переходные болота в OSM отдельного значения
 не имеют и обычно размечены как `bog` или `fen`.
+| `springs_point` | `natural=spring\|hot_spring\|geyser` или `waterway=waterfall` (родники, ключи, водопады; галочка `springs`) |
 | `seas_point` | `place=sea` (node/way/relation → точка center) |
 | `coastline_line` | `way[natural=coastline]` (опционально) |
 
